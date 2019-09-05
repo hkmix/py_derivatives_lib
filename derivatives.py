@@ -7,7 +7,12 @@ from typing import Any, Callable, List, Optional, Tuple
 
 import numpy as np
 import matplotlib.pyplot as plt
+import scipy.special as scsp
 import scipy.stats as scs
+
+
+def e(value: float) -> float:
+    return math.exp(value)
 
 
 class BuyType(enum.Enum):
@@ -205,10 +210,15 @@ def pv(
     coupon: float,
     rate: float,
     face: float,
+    continuous: bool = False,
 ) -> float:
+    if continuous:
+        apply_rate = lambda rate, t: math.exp(rate * t)
+    else:
+        apply_rate = lambda rate, t: (1 + rate) ** t
     return sum(
-        coupon / (1 + rate) ** t for t in range(1, n + 1)
-    ) + face / (1 + rate) ** n
+        coupon * face / apply_rate(rate, t) for t in range(1, n + 1)
+    ) + face / apply_rate(rate, n)
 
 
 def black_scholes(
@@ -264,3 +274,34 @@ def find_zero(
         guess = (high + low) / 2
 
     return guess
+
+
+def binom_price_call(
+    u: float, d: float, R: float, S: float, K: float, n: int, T: float = 1.0,
+) -> float:
+    p = (R / T - d) / (u - d)
+    return sum(
+        scsp.comb(n, j) * p ** j * (1 - p) ** (n - j) *
+        max(0, u ** j * d ** (n - j) * S - K)
+        for j in range(0, n + 1)
+    ) / R ** n
+
+
+def binom_price_put(
+    u: float, d: float, R: float, S: float, K: float, n: int, T: float = 1.0,
+) -> float:
+    p = (R / T - d) / (u - d)
+    return sum(
+        scsp.comb(n, j) * p ** j * (1 - p) ** (n - j) *
+        max(0, K - u ** j * d ** (n - j) * S)
+        for j in range(0, n + 1)
+    ) / R ** n
+
+
+def binom_delta_b(
+    c_u: float, c_d: float, u: float, d: float, R: float, S: float,
+) -> float:
+    return {
+        'Delta': (c_u - c_d) / (S * (u - d)),
+        'B': (u * c_d - d * c_u) / (R * (u - d)),
+    }
